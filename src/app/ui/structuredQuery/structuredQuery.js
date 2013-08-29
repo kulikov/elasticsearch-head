@@ -41,7 +41,7 @@
 			var qdi = new data.QueryDataSourceInterface({ metadata: metadata, query: new data.Query() });
 			var tab = new ui.Table( {
 				store: qdi,
-				height: 400,
+				// height: 400,
 				width: this.out.innerWidth()
 			} ).attach(this.out.empty());
 			qdi._results_handler(qdi.config.query, results);
