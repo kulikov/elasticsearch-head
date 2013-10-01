@@ -751,7 +751,7 @@
 	data.Query = ux.Observable.extend({
 		defaults: {
 			cluster: null,  // (required) instanceof app.services.Cluster
-			size: 50        // size of pages to return
+			size: 200        // size of pages to return
 		},
 		init: function() {
 			this._super();
@@ -1037,7 +1037,7 @@
 
 	data.BoolQuery = ux.Observable.extend({
 		defaults: {
-			size: 50		// size of pages to return
+			size: 200		// size of pages to return
 		},
 		init: function() {
 			this._super();
@@ -3218,7 +3218,7 @@
 			var qdi = new data.QueryDataSourceInterface({ metadata: metadata, query: new data.Query() });
 			var tab = new ui.Table( {
 				store: qdi,
-				height: 400,
+				height: '100%',
 				width: this.out.innerWidth()
 			} ).attach(this.out.empty());
 			qdi._results_handler(qdi.config.query, results);
@@ -3573,6 +3573,7 @@
 		init: function(parent) {
 			this._super();
 			this.base_uri = this.config.base_uri;
+
 			if( this.base_uri.charAt( this.base_uri.length - 1 ) !== "/" ) {
 				// XHR request fails if the URL is not ending with a "/"
 				this.base_uri += "/";
