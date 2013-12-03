@@ -4,19 +4,19 @@
 
 	ui.Header = ui.AbstractWidget.extend({
 		defaults: {
-			cluster: null,
-			base_uri: null
+			cluster: null
 		},
 		_baseCls: "uiHeader",
 		init: function() {
 			this._clusterConnect = new ui.ClusterConnect({
-				base_uri: this.config.base_uri
+				cluster: this.config.cluster
 			});
 			var quicks = [
 				{ text: i18n.text("Nav.Info"), path: "" },
 				{ text: i18n.text("Nav.Status"), path: "_status" },
 				{ text: i18n.text("Nav.NodeStats"), path: "_cluster/nodes/stats" },
 				{ text: i18n.text("Nav.ClusterNodes"), path: "_cluster/nodes" },
+				{ text: i18n.text("Nav.Plugins"), path: "_nodes/plugin" },
 				{ text: i18n.text("Nav.ClusterState"), path: "_cluster/state" },
 				{ text: i18n.text("Nav.ClusterHealth"), path: "_cluster/health" }
 			];

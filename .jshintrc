@@ -2,6 +2,10 @@
 	"maxerr": 1000,
 
 	"predef": [
+		"exports",
+		"describe",
+		"expect",
+		"it"
 	],
 
 	"jquery" : true,

@@ -1,6 +1,52 @@
-(function( $, app ) {
+(function( $, app, i18n ) {
 
 	var ui = app.ns("ui");
+
+	// ( master ) master = true, data = true 
+	// ( coordinator ) master = true, data = false
+	// ( worker ) master = false, data = true;
+	// ( client ) master = false, data = false;
+	// http enabled ?
+
+	function nodeSort_name(a, b) {
+		if (!(a.cluster && b.cluster)) {
+			return 0;
+		}
+		return a.cluster.name.toString().localeCompare( b.cluster.name.toString() );
+	}
+
+	function nodeSort_addr( a, b ) {
+		if (!(a.cluster && b.cluster)) {
+			return 0;
+		}
+		return a.cluster.transport_address.toString().localeCompare( b.cluster.transport_address.toString() );
+	}
+
+	function nodeSort_type( a, b ) {
+		if (!(a.cluster && b.cluster)) {
+			return 0;
+		}
+		if( a.master_node ) {
+			return -1;
+		} else if( b.master_node ) {
+			return 1;
+		} else if( a.data_node && !b.data_node ) {
+			return -1;
+		} else if( b.data_node && !a.data_node ) {
+			return 1;
+		} else {
+			return a.cluster.name.toString().localeCompare( b.cluster.name.toString() );
+		}
+	}
+
+	function nodeFilter_none( a ) {
+		return true;
+	}
+
+	function nodeFilter_clients( a ) {
+		return (a.master_node || a.data_node );
+	}
+
 
 	ui.ClusterOverview = ui.Page.extend({
 		defaults: {
@@ -10,6 +56,7 @@
 			this._super();
 			this._resetTimer = null;
 			this._redrawValue = -1;
+			this._nodeSort = nodeSort_name;
 			this._refreshButton = new ui.SplitButton({
 				label: i18n.text("General.RefreshResults"),
 				items: [
@@ -22,13 +69,22 @@
 					this._redrawValue = event.value;
 					if( event.value < 0 ) {
 						window.clearTimeout( this._resetTimer );
-					} else {
-						this.redraw( "reset" );
 					}
+					this.redraw( "reset" );
 				}.bind( this ),
 				onclick: function( btn, event ) {
 					this.redraw("reset");
 				}.bind(this)
+			});
+			this._nodeSortMenu = new ui.MenuButton({
+				label: "Sort Cluster",
+				menu: new ui.MenuPanel({
+					items: [
+						{ text: "By Name", onclick: this._nodeSort_handler.bind(this, nodeSort_name ) },
+						{ text: "By Address", onclick: this._nodeSort_handler.bind(this, nodeSort_addr ) },
+						{ text: "By Type", onclick: this._nodeSort_handler.bind(this, nodeSort_type ) }
+					]
+				})
 			});
 
 			this.el = $(this._main_template());
@@ -62,7 +118,7 @@
 				var clusterNodes = this.clusterNodes;
 				var nodes = [];
 				var indices = [];
-				var cluster = { nodes: nodes };
+				var cluster = {};
 				var nodeIndices = {};
 				var indexIndices = {}, indexIndicesIndex = 0;
 				function newNode(n) {
@@ -138,9 +194,11 @@
 						});
 					}
 				});
-				cluster.nodes.forEach(function(node) {
+				nodes.forEach(function(node) {
 					node.stats = nodeStats.nodes[node.name];
-					node.cluster = clusterNodes.nodes[node.name];
+					var cluster = clusterNodes.nodes[node.name];
+					node.cluster = cluster;
+					node.data_node = !( cluster && cluster.attributes && cluster.attributes.data === "false" );
 					for(var i = 0; i < indices.length; i++) {
 						node.routings[i] = node.routings[i] || { name: indices[i].name, replicas: [] };
 						node.routings[i].max_number_of_shards = indices[i].metadata.settings["index.number_of_shards"];
@@ -161,11 +219,33 @@
 					});
 				});
 				cluster.aliases = aliases;
+				cluster.nodes = nodes
+					.filter( nodeFilter_none )
+					.sort( this._nodeSort );
 				indices.unshift({ name: null });
-				this.tablEl.empty().append(this._cluster_template(cluster, indices));
+				this._drawNodesView( cluster, indices );
 				this._refreshButton.enable();
 				this.fire("drawn", this );
 			}
+		},
+		_drawNodesView: function( cluster, indices ) {
+			this._nodesView && this._nodesView.remove();
+			this._nodesView = new ui.NodesView({
+				onRedraw: function() {
+					this.redraw("reset");
+				}.bind(this),
+				interactive: ( this._redrawValue === -1 ),
+				cluster: this.cluster,
+				data: {
+					cluster: cluster,
+					indices: indices
+				}
+			});
+			this._nodesView.attach( this.tablEl );
+		},
+		_nodeSort_handler: function( sortFn ) {
+			this._nodeSort = sortFn;
+			this.redraw("reset");
 		},
 		_clusterState_handler: function(state) {
 			this.clusterState = state;
@@ -218,206 +298,6 @@
 				}.bind(this)
 			}).open();
 		},
-		_newAliasAction_handler: function(index) {
-			var fields = new app.ux.FieldCollection({
-				fields: [
-					new ui.TextField({ label: i18n.text("AliasForm.AliasName"), name: "alias", require: true })
-				]
-			});
-			var dialog = new ui.DialogPanel({
-				title: i18n.text("AliasForm.NewAliasForIndexName", index.name),
-				body: new ui.PanelForm({ fields: fields }),
-				onCommit: function(panel, args) {
-					if(fields.validate()) {
-						var data = fields.getData();
-						var command = {
-							"actions" : [
-								{ "add" : { "index" : index.name, "alias" : data["alias"] } }
-							]
-						};
-						this.config.cluster.post('_aliases', JSON.stringify(command), function(d) {
-							dialog.close();
-							alert(JSON.stringify(d));
-							this.redraw("reset");
-						}.bind(this) );
-					}
-				}.bind(this)
-			}).open();
-		},
-		_deleteIndexAction_handler: function(index) {
-			if( prompt( i18n.text("AliasForm.DeleteAliasMessage", i18n.text("Command.DELETE"), index.name ) ) === i18n.text("Command.DELETE") ) {
-				this.cluster["delete"](index.name, null, function(r) {
-					alert(JSON.stringify(r));
-					this.redraw("reset");
-				}.bind(this) );
-			}
-		},
-		_postIndexAction_handler: function(action, index, redraw) {
-			this.cluster.post(index.name + "/" + action, null, function(r) {
-				alert(JSON.stringify(r));
-				redraw && this.redraw("reset");
-			}.bind(this));
-		},
-		_testAnalyser_handler: function(index) {
-			this.cluster.get(index.name + "/_analyze?text=" + prompt( i18n.text("IndexCommand.TextToAnalyze") ), function(r) {
-				alert(JSON.stringify(r, true, "  "));
-			});
-		},
-		_showdownNode_handler: function(node) {
-			if(prompt( i18n.text("IndexCommand.ShutdownMessage", i18n.text("Command.SHUTDOWN"), node.cluster.name ) ) === i18n.text("Command.SHUTDOWN") ) {
-				this.cluster.post( "_cluster/nodes/" + node.name + "/_shutdown", null, function(r) {
-					alert(JSON.stringify(r));
-					this.redraw("reset");
-				}.bind(this));
-			}
-		},
-		_replica_template: function(replica) {
-			var r = replica.replica;
-			return { tag: "DIV",
-				cls: "uiClusterOverview-replica" + (r.primary ? " primary" : "") + ( " state-" + r.state ),
-				text: r.shard.toString(),
-				onclick: function() { new ui.JsonPanel({
-					json: replica.status || replica.replica,
-					title: r.index + "/" + r.node + " [" + r.shard + "]" });
-				}
-			};
-		},
-		_routing_template: function(routing) {
-			var cell = { tag: "TD", cls: "uiClusterOverview-routing" + (routing.open ? "" : " close"), children: [] };
-			for(var i = 0; i < routing.replicas.length; i++) {
-				if(i % routing.max_number_of_shards === 0 && i > 0) {
-					cell.children.push({ tag: "BR" });
-				}
-				if( i in (routing.replicas)) {
-					cell.children.push(this._replica_template(routing.replicas[i]));
-				} else {
-					cell.children.push( { tag: "DIV", cls: "uiClusterOverview-nullReplica" } );
-				}
-			}
-			return cell;
-		},
-		_node_template: function(node) {
-			return { tag: "TR", cls: "uiClusterOverview-node" + (node.master_node ? " master": ""), children: [
-				{ tag: "TH", children: node.name === "Unassigned" ? [
-					{ tag: "DIV", cls: "uiClusterOverview-title", text: node.name }
-				] : [
-					{ tag: "DIV", children: [
-						{ tag: "SPAN", cls: "uiClusterOverview-title", text: node.cluster.name },
-						" ",
-						{ tag: "SPAN", text: node.name }
-					]},
-					{ tag: "DIV", text: node.cluster.http_address },
-					{ tag: "DIV", cls: "uiClusterOverview-controls", children: [
-						new ui.MenuButton({
-							label: i18n.text("NodeInfoMenu.Title"),
-							menu: new ui.MenuPanel({
-								items: [
-									{ text: i18n.text("NodeInfoMenu.ClusterNodeInfo"), onclick: function() { new ui.JsonPanel({ json: node.cluster, title: node.name });} },
-									{ text: i18n.text("NodeInfoMenu.NodeStats"), onclick: function() { new ui.JsonPanel({ json: node.stats, title: node.name });} }
-								]
-							})
-						}),
-						new ui.MenuButton({
-							label: i18n.text("NodeActionsMenu.Title"),
-							menu: new ui.MenuPanel({
-								items: [
-									{ text: i18n.text("NodeActionsMenu.Shutdown"), onclick: function() { this._showdownNode_handler(node); }.bind(this) }
-								]
-							})
-						})
-					] }
-				] }
-			].concat(node.routings.map(this._routing_template, this))};
-		},
-		_indexHeader_template: function(index) {
-			var closed = index.state === "close";
-			var line1 = closed ? "index: close" : ( "size: " + (index.status && index.status.index ? index.status.index.primary_size + " (" + index.status.index.size + ")" : "unknown" ) ); 
-			var line2 = closed ? "\u00A0" : ( "docs: " + (index.status && index.status.docs ? index.status.docs.num_docs + " (" + index.status.docs.max_doc + ")" : "unknown" ) );
-			return index.name ? { tag: "TH", cls: (closed ? "close" : ""), children: [
-				{ tag: "DIV", cls: "uiClusterOverview-title", text: index.name },
-				{ tag: "DIV", text: line1 },
-				{ tag: "DIV", text: line2 },
-				{ tag: "DIV", cls: "uiClusterOverview-controls", children: [
-					new ui.MenuButton({
-						label: i18n.text("IndexInfoMenu.Title"),
-						menu: new ui.MenuPanel({
-							items: [
-								{ text: i18n.text("IndexInfoMenu.Status"), onclick: function() { new ui.JsonPanel({ json: index.status, title: index.name }); } },
-								{ text: i18n.text("IndexInfoMenu.Metadata"), onclick: function() { new ui.JsonPanel({ json: index.metadata, title: index.name }); } }
-							]
-						})
-					}),
-					new ui.MenuButton({
-						label: i18n.text("IndexActionsMenu.Title"),
-						menu: new ui.MenuPanel({
-							items: [
-								{ text: i18n.text("IndexActionsMenu.NewAlias"), onclick: function() { this._newAliasAction_handler(index); }.bind(this) },
-								{ text: i18n.text("IndexActionsMenu.Refresh"), onclick: function() { this._postIndexAction_handler("_refresh", index, false); }.bind(this) },
-								{ text: i18n.text("IndexActionsMenu.Flush"), onclick: function() { this._postIndexAction_handler("_flush", index, false); }.bind(this) },
-								{ text: i18n.text("IndexActionsMenu.Snapshot"), disabled: closed, onclick: function() { this._postIndexAction_handler("_gateway/snapshot", index, false); }.bind(this) },
-								{ text: i18n.text("IndexActionsMenu.Analyser"), onclick: function() { this._testAnalyser_handler(index); }.bind(this) },
-								{ text: closed ? i18n.text("IndexActionsMenu.Open") : i18n.text("IndexActionsMenu.Close"), onclick: function() { this._postIndexAction_handler(closed ? "_open" : "_close", index, true); }.bind(this) },
-								{ text: i18n.text("IndexActionsMenu.Delete"), onclick: function() { this._deleteIndexAction_handler(index); }.bind(this) }
-							]
-						})
-					})
-				] }
-			]} : { tag: "TH" };
-		},
-		_alias_template: function(alias, row) {
-			return { tag: "TR", children: [ { tag: "TD"	} ].concat(alias.indices.map(function(index, i) {
-				if (index) {
-					return {
-						tag: "TD",
-						css: { background: "#" + "9ce9c7fc9".substr((row+6)%7,3) },
-						cls: "uiClusterOverview-hasAlias" + ( alias.min === i ? " min" : "" ) + ( alias.max === i ? " max" : "" ),
-						text: alias.name,
-						children: [
-							{	tag: 'SPAN',
-								text: i18n.text("General.CloseGlyph"),
-								cls: 'uiClusterOverview-hasAlias-remove',
-								onclick: function() {
-									var command = {
-										"actions" : [
-											{ "remove" : { "index" : index.name, "alias" : alias.name } }
-										]
-									};
-									this.config.cluster.post('_aliases', JSON.stringify(command), function(d) {
-										alert(JSON.stringify(d));
-										this.redraw("reset");
-									}.bind(this) );
-								}.bind(this)
-							}
-						]
-					};
-				}
-				else {
-					return { tag: "TD" };
-				}
-			},
-			this)) };
-		},
-		_cluster_template: function(cluster, indices) {
-			function nodeNameCmp(first, second) {
-				if (!(first.cluster && second.cluster)) {
-					return 0;
-				}
-				var a = first.cluster.name;
-				var b = second.cluster.name;
-				if (a.toString() < b.toString()) {
-					return -1;
-				}
-				if (a.toString() > b.toString()) {
-					return 1;
-				}
-				return 0;
-			}
-			return { tag: "TABLE", cls: "uiClusterOverview-cluster", children: [
-				{ tag: "THEAD", child: { tag: "TR", children: indices.map(this._indexHeader_template, this) } },
-				cluster.aliases.length && { tag: "TBODY", children: cluster.aliases.map(this._alias_template, this) },
-				{ tag: "TBODY", children: cluster.nodes.sort(nodeNameCmp).map(this._node_template, this) }
-			] };
-		},
 		_main_template: function() {
 			return { tag: "DIV", id: this.id(), cls: "uiClusterOverview", children: [
 				new ui.Toolbar({
@@ -426,10 +306,10 @@
 						new ui.Button({
 							label: i18n.text("ClusterOverview.NewIndex"),
 							onclick: this._newIndex_handler
-						})
+						}),
+						this._nodeSortMenu
 					],
 					right: [
-						this._compactToggle,
 						this._refreshButton
 					]
 				}),
@@ -438,4 +318,4 @@
 		}
 	});
 
-})( this.jQuery, this.app );
+})( this.jQuery, this.app, this.i18n );

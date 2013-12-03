@@ -5,6 +5,7 @@
 		<meta charset="UTF-8">
 		<title>elasticsearch-head</title>
 		<link rel="stylesheet" href="dist/base/reset.css">
+		<link rel="stylesheet" href="dist/vendor.css">
 		<link rel="stylesheet" href="dist/app.css">
 		<script src="dist/i18n.js" data-baseDir="dist/lang" data-langs="en,fr"></script>
 		<script src="dist/vendor.js"></script>
@@ -22,6 +23,7 @@
 					base_uri: args["base_uri"] || base_uri,
 					auth_user : args["auth_user"] || "",
 					auth_password : args["auth_password"],
+					dashboard: args["dashboard"],
 					size: 200
 				});
 			};
