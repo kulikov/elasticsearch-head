@@ -1,0 +1,28 @@
+.uiNodesView-replica.primary {
+  border-width: 2px;
+  margin: 2px;
+}
+
+.uiNodesView-nullReplica, .uiNodesView-replica {
+  height: 21px;
+  width: 20px;
+  font-size: 16px;
+  letter-spacing: -1px;
+  text-indent: -2px;
+  margin: 3px;
+  border-width: 1px;
+}
+
+.uiNodesView TH, .uiNodesView TD {
+  border-bottom: 1px solid #eee;
+  border-right: 1px solid #eee;
+  padding: 5px 0 5px 5px;
+}
+
+.uiNodesView-node:nth-child(odd) {
+  background: none;
+}
+
+.uiNodesView TD.uiNodesView-icon {
+  padding: 10px 5px 15px 10px;
+}
