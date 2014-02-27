@@ -3025,7 +3025,9 @@
 
 				var indexNames = [];
 				$.each(clusterState.routing_table.indices, function(name, index){
-					indexNames.push(name);
+					if (name[0] != ".") {
+						indexNames.push(name);
+					}
 				});
 				indexNames.sort().forEach(function(name) {
 					var index = clusterState.routing_table.indices[name];
