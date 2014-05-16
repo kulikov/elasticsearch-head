@@ -10,7 +10,7 @@ exports.vendorCss = [
 ];
 
 exports.srcJs = [
-	'src/app/core/boot.js',
+	'src/app/base/boot.js',
 
 	'src/app/ux/class.js',
 	'src/app/ux/templates/templates.js',
@@ -18,6 +18,7 @@ exports.srcJs = [
 	'src/app/ux/dragdrop.js',
 	'src/app/ux/fieldCollection.js',
 
+	'src/app/data/model/model.js',
 	'src/app/data/dataSourceInterface.js',
 	'src/app/data/resultDataSourceInterface.js',
 	'src/app/data/metaData.js',
@@ -28,10 +29,12 @@ exports.srcJs = [
 
 	'src/app/services/storage.js',
 	'src/app/services/cluster.js',
+	'src/app/services/clusterState/clusterState.js',
 
 	'src/app/ui/abstractWidget/abstractWidget.js',
 	'src/app/ui/abstractField/abstractField.js',
 	'src/app/ui/textField/textField.js',
+	'src/app/ui/checkField/checkField.js',
 	'src/app/ui/button/button.js',
 	'src/app/ui/menuButton/menuButton.js',
 	'src/app/ui/splitButton/splitButton.js',
@@ -41,6 +44,7 @@ exports.srcJs = [
 	'src/app/ui/infoPanel/infoPanel.js',
 	'src/app/ui/dialogPanel/dialogPanel.js',
 	'src/app/ui/menuPanel/menuPanel.js',
+	'src/app/ui/selectMenuPanel/selectMenuPanel.js',
 	'src/app/ui/table/table.js',
 	'src/app/ui/csvTable/csvTable.js',
 	'src/app/ui/jsonPretty/jsonPretty.js',
@@ -74,6 +78,7 @@ exports.srcCss = [
 	'src/app/ui/abstractPanel/abstractPanel.css',
 	'src/app/ui/infoPanel/infoPanel.css',
 	'src/app/ui/menuPanel/menuPanel.css',
+	'src/app/ui/selectMenuPanel/selectMenuPanel.css',
 	'src/app/ui/table/table.css',
 	'src/app/ui/jsonPretty/jsonPretty.css',
 	'src/app/ui/jsonPanel/jsonPanel.css',

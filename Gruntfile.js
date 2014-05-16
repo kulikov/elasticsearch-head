@@ -32,7 +32,7 @@ module.exports = function(grunt) {
 			base: {
 				expand: true,
 				cwd: 'src/app/base/',
-				src: '**',
+				src: [ '*.gif', '*.png', '*.css' ],
 				dest: 'dist/base/'
 			},
 			iconFonts: {
@@ -54,10 +54,12 @@ module.exports = function(grunt) {
 		},
 
 		jasmine: {
-			src: [ fileSets.vendorJs, 'src/vendor/i18n/i18n.js', 'src/app/lang/en_strings.js', fileSets.srcJs ],
-			options: {
-				specs: 'src/app/**/*Spec.js',
-				helpers: 'test/spec/*Helper.js'
+			task: {
+				src: [ fileSets.vendorJs, 'src/vendor/i18n/i18n.js', 'src/app/lang/en_strings.js', fileSets.srcJs ],
+				options: {
+					specs: 'src/app/**/*Spec.js',
+					helpers: 'test/spec/*Helper.js'
+				}
 			}
 		},
 
@@ -93,6 +95,8 @@ module.exports = function(grunt) {
 	// Default task(s).
 	grunt.registerTask('default', ['clean', 'concat', 'copy', 'jasmine']);
 	grunt.registerTask('server', ['connect:server']);
+	grunt.registerTask('dev', [ 'default', 'watch' ]);
+
 
 
 };
