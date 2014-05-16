@@ -96,18 +96,6 @@
 	padding: 2px 17px 2px 6px;
 	margin-left: -8px;
 }
-.uiSplitButton-panel .uiMenuPanel-label {
-	margin-left: 1em;
-	padding-left: 4px;
-}
-
-.uiSplitButton-panel .uiMenuPanel-item.selected .uiMenuPanel-label:before {
-	content: "\2713";
-	width: 12px;
-	margin-left: -12px;
-	display: inline-block;
-
-}
 
 .uiToolbar {
 	height: 28px;
@@ -125,6 +113,14 @@
 	padding: 5px 20px 5px 0;
 }
 
+.uiToolbar .uiTextField {
+	display: inline-block;
+}
+
+.uiToolbar .uiTextField INPUT {
+	padding-top: 2px;
+	padding-bottom: 5px;
+}
 #uiModal {
 	background: black;
 }
@@ -239,6 +235,17 @@
 	color: #888;
 }
 
+.uiSelectMenuPanel .uiMenuPanel-label {
+	margin-left: 1em;
+	padding-left: 4px;
+}
+
+.uiSelectMenuPanel .uiMenuPanel-item.selected .uiMenuPanel-label:before {
+	content: "\2713";
+	width: 12px;
+	margin-left: -12px;
+	display: inline-block;
+}
 
 .uiTable TABLE {
 	border-collapse: collapse;
@@ -586,6 +593,7 @@ SPAN.uiJsonPretty-boolean { color: purple; }
 
 .uiNodesView-routing {
 	position: relative;
+	min-width: 90px;
 }
 
 .uiNodesView-nullReplica,
@@ -616,12 +624,6 @@ SPAN.uiJsonPretty-boolean { color: purple; }
 .uiNodesView-replica.state-RELOCATING { background: #dc88dd; }
 
 
-.uiClusterConnect-name, .uiClusterConnect-status {
-	font-size: 1.2em;
-	font-weight: bold;
-	padding: 0 10px;
-}
-
 .uiClusterConnect-uri {
 	width: 280px;
 }
@@ -647,6 +649,13 @@ SPAN.uiJsonPretty-boolean { color: purple; }
 .uiHeader {
 	padding: 3px 10px;
 }
+
+.uiHeader-name, .uiHeader-status {
+	font-size: 1.2em;
+	font-weight: bold;
+	padding: 0 10px;
+}
+
 
 .uiApp-header {
 	background: #eee;

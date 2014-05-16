@@ -4,8 +4,9 @@
 	var ut = app.ns("ut");
 
 	ui.NodesView = ui.AbstractWidget.extend({
-		default: {
+		defaults: {
 			interactive: true,
+			aliasRenderer: "list",
 			cluster: null,
 			data: null
 		},
@@ -13,6 +14,11 @@
 			this._super();
 			this.interactive = this.config.interactive;
 			this.cluster = this.config.cluster;
+			this._aliasRenderFunction = {
+				"none": this._aliasRender_template_none,
+				"list": this._aliasRender_template_list,
+				"full": this._aliasRender_template_full
+			}[ this.config.aliasRenderer ];
 			this.el = $( this._main_template( this.config.data.cluster, this.config.data.indices ) );
 		},
 
@@ -47,6 +53,28 @@
 				alert(JSON.stringify(r));
 				redraw && this.fire("redraw");
 			}.bind(this));
+		},
+		_optimizeIndex_handler: function(index) {
+			var fields = new app.ux.FieldCollection({
+				fields: [
+					new ui.TextField({ label: i18n.text("OptimizeForm.MaxSegments"), name: "max_num_segments", value: "1", require: true }),
+					new ui.CheckField({ label: i18n.text("OptimizeForm.ExpungeDeletes"), name: "only_expunge_deletes", value: false }),
+					new ui.CheckField({ label: i18n.text("OptimizeForm.FlushAfter"), name: "flush", value: true }),
+					new ui.CheckField({ label: i18n.text("OptimizeForm.WaitForMerge"), name: "wait_for_merge", value: false })
+				]
+			});
+			var dialog = new ui.DialogPanel({
+				title: i18n.text("OptimizeForm.OptimizeIndex", index.name),
+				body: new ui.PanelForm({ fields: fields }),
+				onCommit: function( panel, args ) {
+					if(fields.validate()) {
+						this.cluster.post(index.name + "/_optimize", fields.getData(), function(r) {
+							alert(JSON.stringify(r));
+						});
+						dialog.close();
+					}
+				}.bind(this)
+			}).open();
 		},
 		_testAnalyser_handler: function(index) {
 			this.cluster.get(index.name + "/_analyze?text=" + prompt( i18n.text("IndexCommand.TextToAnalyze") ), function(r) {
@@ -130,14 +158,22 @@
 			] }
 		); },
 		_nodeIcon_template: function( node ) {
-			var icon = "fa fa-2x fa-" + (node.master_node ? "star" : "circle") + (node.data_node ? "" : "-o" );
-			var alt = i18n.text( node.master_node ? ( node.data_node ? "NodeType.Master" : "NodeType.Coord" ) : ( node.data_node ? "NodeType.Worker" : "NodeType.Client" ) );
+			var icon, alt;
+			if( node.name === "Unassigned" ) {
+				icon = "fa-exclamation-triangle";
+				alt = i18n.text( "NodeType.Unassigned" );
+			} else if( node.cluster.settings && "tribe" in node.cluster.settings) {
+				icon = "fa-sitemap";
+				alt = i18n.text("NodeType.Tribe" );
+			} else {
+				icon = "fa-" + (node.master_node ? "star" : "circle") + (node.data_node ? "" : "-o" );
+				alt = i18n.text( node.master_node ? ( node.data_node ? "NodeType.Master" : "NodeType.Coord" ) : ( node.data_node ? "NodeType.Worker" : "NodeType.Client" ) );
+			}
 			return { tag: "TD", title: alt, cls: "uiNodesView-icon", children: [
-				{ tag: "SPAN", cls: icon }
+				{ tag: "SPAN", cls: "fa fa-2x " + icon }
 			] };
 		},
 		_node_template: function(node) {
-			console.log( node.cluster );
 			return { tag: "TR", cls: "uiNodesView-node" + (node.master_node ? " master": ""), children: [
 				this._nodeIcon_template( node ),
 				{ tag: "TH", children: node.name === "Unassigned" ? [
@@ -150,29 +186,6 @@
 					this.interactive ? this._nodeControls_template( node ) : null
 				] }
 			].concat(node.routings.map(this._routing_template, this))};
-		},
-		_alias_template: function(alias, row) {
-			return { tag: "TR", children: [ { tag: "TD" },{ tag: "TD" } ].concat(alias.indices.map(function(index, i) {
-				if (index) {
-					return {
-						tag: "TD",
-						css: { background: "#" + "9ce9c7fc9".substr((row+6)%7,3) },
-						cls: "uiNodesView-hasAlias" + ( alias.min === i ? " min" : "" ) + ( alias.max === i ? " max" : "" ),
-						text: alias.name,
-						children: this.interactive ? [
-							{	tag: 'SPAN',
-								text: i18n.text("General.CloseGlyph"),
-								cls: 'uiNodesView-hasAlias-remove',
-								onclick: this._deleteAliasAction_handler.bind( this, index, alias )
-							}
-						]: null
-					};
-				}
-				else {
-					return { tag: "TD" };
-				}
-			},
-			this)) };
 		},
 		_indexHeaderControls_template: function( index ) { return (
 			{ tag: "DIV", cls: "uiNodesView-controls", children: [
@@ -192,6 +205,7 @@
 							{ text: i18n.text("IndexActionsMenu.NewAlias"), onclick: function() { this._newAliasAction_handler(index); }.bind(this) },
 							{ text: i18n.text("IndexActionsMenu.Refresh"), onclick: function() { this._postIndexAction_handler("_refresh", index, false); }.bind(this) },
 							{ text: i18n.text("IndexActionsMenu.Flush"), onclick: function() { this._postIndexAction_handler("_flush", index, false); }.bind(this) },
+							{ text: i18n.text("IndexActionsMenu.Optimize"), onclick: function () { this._optimizeIndex_handler(index); }.bind(this) },
 							{ text: i18n.text("IndexActionsMenu.Snapshot"), disabled: closed, onclick: function() { this._postIndexAction_handler("_gateway/snapshot", index, false); }.bind(this) },
 							{ text: i18n.text("IndexActionsMenu.Analyser"), onclick: function() { this._testAnalyser_handler(index); }.bind(this) },
 							{ text: (index.state === "close") ? i18n.text("IndexActionsMenu.Open") : i18n.text("IndexActionsMenu.Close"), onclick: function() { this._postIndexAction_handler((index.state === "close") ? "_open" : "_close", index, true); }.bind(this) },
@@ -203,7 +217,6 @@
 		); },
 		_indexHeader_template: function( index ) {
 			var closed = index.state === "close";
-			console.log( index.status );
 			var line1 = closed ? "index: close" : ( "size: " + (index.status && index.status.index ? ut.byteSize_template( index.status.index.primary_size_in_bytes ) + " (" + ut.byteSize_template( index.status.index.size_in_bytes ) + ")" : "unknown" ) ); 
 			var line2 = closed ? "\u00A0" : ( "docs: " + (index.status && index.status.docs ? index.status.docs.num_docs.toLocaleString() + " (" + index.status.docs.max_doc.toLocaleString() + ")" : "unknown" ) );
 			return index.name ? { tag: "TH", cls: (closed ? "close" : ""), children: [
@@ -213,10 +226,47 @@
 				this.interactive ? this._indexHeaderControls_template( index ) : null
 			] } : [ { tag: "TD" }, { tag: "TH" } ];
 		},
+		_aliasRender_template_none: function( cluster, indices ) {
+			return null;
+		},
+		_aliasRender_template_list: function( cluster, indices ) {
+			return cluster.aliases.length && { tag: "TBODY", children: [
+				{ tag: "TR", children: [
+					{ tag: "TD" }
+				].concat( indices.map( function( index ) {
+					return { tag: "TD", children: index.metadata && index.metadata.aliases.map( function( alias ) {
+						return { tag: "LI", text: alias };
+					} ) };
+				})) }
+			] };
+		},
+		_aliasRender_template_full: function( cluster, indices ) {
+			return cluster.aliases.length && { tag: "TBODY", children: cluster.aliases.map( function(alias, row) {
+				return { tag: "TR", children: [ { tag: "TD" },{ tag: "TD" } ].concat(alias.indices.map(function(index, i) {
+					if (index) {
+						return {
+							tag: "TD",
+							css: { background: "#" + "9ce9c7fc9".substr((row+6)%7,3) },
+							cls: "uiNodesView-hasAlias" + ( alias.min === i ? " min" : "" ) + ( alias.max === i ? " max" : "" ),
+							text: alias.name,
+							children: this.interactive ? [
+								{	tag: 'SPAN',
+									text: i18n.text("General.CloseGlyph"),
+									cls: 'uiNodesView-hasAlias-remove',
+									onclick: this._deleteAliasAction_handler.bind( this, index, alias )
+								}
+							]: null
+						};
+					}	else {
+						return { tag: "TD" };
+					}
+				}, this ) ) };
+			}, this )	};
+		},
 		_main_template: function(cluster, indices) {
 			return { tag: "TABLE", cls: "uiNodesView", children: [
 				{ tag: "THEAD", child: { tag: "TR", children: indices.map(this._indexHeader_template, this) } },
-				cluster.aliases.length && { tag: "TBODY", children: cluster.aliases.map(this._alias_template, this) },
+				this._aliasRenderFunction( cluster, indices ),
 				{ tag: "TBODY", children: cluster.nodes.map(this._node_template, this) }
 			] };
 		}
